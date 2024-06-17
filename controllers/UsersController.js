@@ -1,10 +1,19 @@
-import { ObjectId } from 'mongodb';
 import sha1 from 'sha1';
 import dbClient from '../utils/db';
 
 
 class UsersController {
 
+  /**
+   * Creates a new user in the database.
+   *
+   * @param {Object} req - The request object.
+   * @param {Object} res - The response object.
+   * @return {Promise<void>} A Promise that resolves with a JSON response
+   * containing the user's email and ID if the user is successfully created,
+   * or rejects with a JSON response containing an error message if the user
+   * already exists or if the email or password is missing.
+   */
   static async postNew(req, res) {
     const { email, password } = req.body;
 
