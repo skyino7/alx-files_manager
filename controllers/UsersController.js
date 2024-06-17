@@ -1,5 +1,7 @@
 import sha1 from 'sha1';
 import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
+import { ObjectId } from 'mongodb';
 
 
 class UsersController {
@@ -44,6 +46,35 @@ class UsersController {
       }
 
     }
+  }
+
+  /**
+   * Retrieves user information based on the provided token.
+   *
+   * @param {Object} req - The request object containing the token.
+   * @param {Object} res - The response object to send back user information.
+   * @return {Promise<void>} A Promise that resolves with the user's email and ID if authorized,
+   * or rejects with an 'Unauthorized' error if no user is found.
+   */
+  static async getMe(req, res) {
+    const token = req.header('X-Token');
+    if (!token) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const collection = dbClient.db.collection('users');
+    const user = await collection.findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    res.status(200).json({ email: user.email, id: user._id });
   }
 
 }
