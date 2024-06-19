@@ -174,6 +174,81 @@ class FilesController {
 
     return res.status(200).json(files);
   }
+
+  /**
+   * Updates a file to be published based on the provided file ID.
+   *
+   * @param {Object} req - The request object.
+   * @param {Object} res - The response object.
+   * @return {Promise<Object>} The updated file object.
+   */
+  static async putPublish(req, res) {
+    const token = req.header('X-Token');
+    const key = `auth_${token}`;
+
+    const userId = await redisClient.get(key);
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const fileId = req.params.id;
+
+    try {
+      const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId });
+      if (!file) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      const updatedFile = await dbClient.db.collection('files').findOneAndUpdate(
+        { _id: fileId },
+        { $set: { isPublic: true } },
+        { returnOriginal: false }
+      );
+
+      return res.status(200).json(updatedFile.value);
+    } catch (error) {
+      console.error('Error while updating file:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  /**
+   * Unpublishes a file by setting its "isPublic" property to false.
+   *
+   * @param {Object} req - The request object.
+   * @param {Object} res - The response object.
+   * @return {Promise<Object>} The updated file object.
+   */
+  static async putUnpublish(req, res) {
+    const token = req.header('X-Token');
+    const key = `auth_${token}`;
+
+    const userId = await redisClient.get(key);
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const fileId = req.params.id;
+
+    try {
+      const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId });
+      if (!file) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      const updatedFile = await dbClient.db.collection('files').findOneAndUpdate(
+        { _id: fileId },
+        { $set: { isPublic: false } },
+        { returnOriginal: false }
+      );
+
+      return res.status(200).json(updatedFile.value);
+    } catch (error) {
+      console.error('Error while updating file:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
 }
 
 export default FilesController;
