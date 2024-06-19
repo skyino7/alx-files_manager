@@ -1,11 +1,9 @@
 import sha1 from 'sha1';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import { ObjectId } from 'mongodb';
-
 
 class UsersController {
-
   /**
    * Creates a new user in the database.
    *
@@ -21,31 +19,28 @@ class UsersController {
 
     if (!email) {
       return res.status(400).json(
-        { error: 'Missing email' }
-    );
-    } else if (!password) {
+        { error: 'Missing email' },
+      );
+    } if (!password) {
       return res.status(400).json(
-        { error: 'Missing Password' }
-    );
-    } else {
-
-      const collection = await dbClient.db.collection('users');
-      const existingUser = await collection.findOne({ email });
-
-      if (existingUser) {
-        return res.status(400).json({ error: 'Already exist' });
-      } else {
-        const hashedPassword = sha1(password);
-        const newUser = await collection.insertOne({
-          email, password: hashedPassword,
-        });
-        const { _id } = newUser.ops[0];
-        return res.status(201).json(
-            { email, id: _id }
-        );
-      }
-
+        { error: 'Missing Password' },
+      );
     }
+
+    const collection = await dbClient.db.collection('users');
+    const existingUser = await collection.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Already exist' });
+    }
+    const hashedPassword = sha1(password);
+    const newUser = await collection.insertOne({
+      email, password: hashedPassword,
+    });
+    const { _id } = newUser.ops[0];
+    return res.status(201).json(
+      { email, id: _id },
+    );
   }
 
   /**
@@ -59,24 +54,23 @@ class UsersController {
   static async getMe(req, res) {
     const token = req.header('X-Token');
     if (!token) {
-        return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
     if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const collection = dbClient.db.collection('users');
     const user = await collection.findOne({ _id: new ObjectId(userId) });
     if (!user) {
-        return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    res.status(200).json({ email: user.email, id: user._id });
+    return res.status(200).json({ email: user.email, id: user._id });
   }
-
 }
 
 export default UsersController;
