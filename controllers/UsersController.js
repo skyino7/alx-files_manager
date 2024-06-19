@@ -1,4 +1,5 @@
 import sha1 from 'sha1';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
@@ -34,8 +35,10 @@ class UsersController {
     const newUser = await collection.insertOne({
       email, password: hashedPassword,
     });
-
-    return res.status(201).json({ id: newUser.insertedId, email: newUser.email });
+    const { _id } = newUser.ops[0];
+    return res.status(201).json(
+      { email, id: _id },
+    );
   }
 
   /**
@@ -47,7 +50,7 @@ class UsersController {
    * or rejects with an 'Unauthorized' error if no user is found.
    */
   static async getMe(req, res) {
-    const token = req.headers['X-token'];
+    const token = req.header('X-Token');
     if (!token) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -59,12 +62,12 @@ class UsersController {
     }
 
     const collection = dbClient.db.collection('users');
-    const user = await collection.findOne({ _id: new dbClient.ObjectId(userId) });
+    const user = await collection.findOne({ _id: new ObjectId(userId) });
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    return res.status(200).json({ id: user._id, email: user.email });
+    return res.status(200).json({ email: user.email, id: user._id });
   }
 }
 
