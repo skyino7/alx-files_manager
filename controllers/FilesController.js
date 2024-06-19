@@ -95,6 +95,15 @@ class FilesController {
       return res.status(500).json({ error: 'Internal Server Error' });
     }
   }
+
+  static async getShow(req, res) {
+
+  }
+
+  static async getIndex(req, res) {
+
+  }
+
 }
 
 export default FilesController;
