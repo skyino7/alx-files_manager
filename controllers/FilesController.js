@@ -5,7 +5,6 @@ import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
 class FilesController {
-
   static async postUpload(req, res) {
     const token = req.header('X-Token');
     const key = `auth_${token}`;
@@ -15,7 +14,9 @@ class FilesController {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { name, type, parentId = 0, isPublic = false, data } = req.body;
+    const {
+      name, type, parentId = 0, isPublic = false, data,
+    } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Missing name' });
@@ -40,11 +41,11 @@ class FilesController {
     }
 
     const newFile = {
-      userId: userId,
-      name: name,
-      type: type,
-      isPublic: isPublic,
-      parentId: parentId,
+      userId,
+      name,
+      type,
+      isPublic,
+      parentId,
       localPath: '',
     };
 
@@ -64,13 +65,13 @@ class FilesController {
 
     const result = await dbClient.db.collection('files').insertOne(newFile);
 
-    res.status(201).json({
+    return res.status(201).json({
       id: result.insertedId,
-      userId: userId,
-      name: name,
-      type: type,
-      isPublic: isPublic,
-      parentId: parentId,
+      userId,
+      name,
+      type,
+      isPublic,
+      parentId,
       localPath: newFile.localPath,
     });
   }
