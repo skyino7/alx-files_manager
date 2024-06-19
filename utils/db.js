@@ -1,6 +1,3 @@
-import dotenv from 'dotenv';
-
-dotenv.config();
 const { MongoClient } = require('mongodb');
 
 class DBClient {
