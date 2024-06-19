@@ -259,6 +259,7 @@ class FilesController {
    */
   static async getFile(req, res) {
     const { id } = req.params;
+    const { size } = req.query;
 
     try {
       const file = await dbClient.db.collection('files').findOne({ _id: id });
@@ -275,18 +276,30 @@ class FilesController {
         return res.status(400).json({ error: 'A folder doesn\'t have content' });
       }
 
-      // Check if the file exists locally
       if (!fs.existsSync(file.localPath)) {
         return res.status(404).json({ error: 'Not found' });
       }
 
+      if (size && ![500, 250, 100].includes(Number(size))) {
+        return res.status(400).json({ error: 'Invalid size parameter' });
+      }
+
+      let filePath = file.localPath;
+
+      if (size) {
+        filePath = `${file.localPath}_${size}`;
+        if (!fs.existsSync(filePath)) {
+          return res.status(404).json({ error: 'Not found' });
+        }
+      }
+
       const mimeType = mime.lookup(file.name) || 'application/octet-stream';
 
-      const fileStream = fs.createReadStream(file.localPath);
       res.setHeader('Content-Type', mimeType);
+
+      const fileStream = fs.createReadStream(filePath);
       fileStream.pipe(res);
 
-      return res.status(500).json({ error: 'Unexpected Error' });
     } catch (error) {
       console.error('Error while retrieving file:', error);
       return res.status(500).json({ error: 'Internal Server Error' });
