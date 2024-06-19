@@ -7,9 +7,11 @@ import redisClient from '../utils/redis';
 class FilesController {
   static async postUpload(req, res) {
     const token = req.header('X-Token');
-    const key = `auth_${token}`;
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    const userId = await redisClient.get(key);
+    const userId = await redisClient.get(`auth_${token}`);
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -22,7 +24,8 @@ class FilesController {
       return res.status(400).json({ error: 'Missing name' });
     }
 
-    if (!type || !['folder', 'file', 'image'].includes(type)) {
+    const validTypes = ['folder', 'file', 'image'];
+    if (!type || !validTypes.includes(type)) {
       return res.status(400).json({ error: 'Missing type' });
     }
 
@@ -31,7 +34,7 @@ class FilesController {
     }
 
     if (parentId !== 0) {
-      const parentFile = await dbClient.db.collection('files').findOne({ _id: parentId });
+      const parentFile = await dbClient.db.collection('files').findOne({ _id: dbClient.ObjectId(parentId) });
       if (!parentFile) {
         return res.status(400).json({ error: 'Parent not found' });
       }
@@ -49,31 +52,48 @@ class FilesController {
       localPath: '',
     };
 
-    if (type !== 'folder') {
-      const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
-      if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true });
+    if (type === 'folder') {
+      try {
+        const result = await dbClient.db.collection('files').insertOne(newFile);
+        return res.status(201).json({
+          id: result.insertedId,
+          userId,
+          name,
+          type,
+          isPublic,
+          parentId,
+        });
+      } catch (error) {
+        console.error('Error while creating folder:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
       }
-
-      const fileName = uuidv4();
-      const localPath = path.join(folderPath, fileName);
-      const fileData = Buffer.from(data, 'base64');
-
-      fs.writeFileSync(localPath, fileData);
-      newFile.localPath = localPath;
     }
 
-    const result = await dbClient.db.collection('files').insertOne(newFile);
+    const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+    }
 
-    return res.status(201).json({
-      id: result.insertedId,
-      userId,
-      name,
-      type,
-      isPublic,
-      parentId,
-      localPath: newFile.localPath,
-    });
+    const localPath = path.join(folderPath, uuidv4());
+    try {
+      fs.writeFileSync(localPath, Buffer.from(data, 'base64'));
+      newFile.localPath = localPath;
+
+      const result = await dbClient.db.collection('files').insertOne(newFile);
+
+      return res.status(201).json({
+        id: result.insertedId,
+        userId,
+        name,
+        type,
+        isPublic,
+        parentId,
+        localPath,
+      });
+    } catch (error) {
+      console.error('Error while uploading file:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 }
 
