@@ -15,16 +15,14 @@ class UsersController {
    * already exists or if the email or password is missing.
    */
   static async postNew(req, res) {
-    const { email, password } = req.body;
+    const email = req.body ? req.body.email : null;
+    const password = req.body ? req.body.password : null;
 
     if (!email) {
-      return res.status(400).json(
-        { error: 'Missing email' },
-      );
-    } if (!password) {
-      return res.status(400).json(
-        { error: 'Missing Password' },
-      );
+      return res.status(400).json({ error: 'Missing email' });
+    }
+    if (!password) {
+      return res.status(400).json({ error: 'Missing Password' });
     }
 
     const collection = await dbClient.db.collection('users');
