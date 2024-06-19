@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { ObjectId } from 'mongodb';
+import mime from 'mime-types';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
@@ -202,7 +203,7 @@ class FilesController {
       const updatedFile = await dbClient.db.collection('files').findOneAndUpdate(
         { _id: fileId },
         { $set: { isPublic: true } },
-        { returnOriginal: false }
+        { returnOriginal: false },
       );
 
       return res.status(200).json(updatedFile.value);
@@ -239,7 +240,7 @@ class FilesController {
       const updatedFile = await dbClient.db.collection('files').findOneAndUpdate(
         { _id: fileId },
         { $set: { isPublic: false } },
-        { returnOriginal: false }
+        { returnOriginal: false },
       );
 
       return res.status(200).json(updatedFile.value);
@@ -249,6 +250,48 @@ class FilesController {
     }
   }
 
+  /**
+   * Retrieves a file from the database and sends it as a response.
+   *
+   * @param {Object} req - The request object.
+   * @param {Object} res - The response object.
+   * @return {Promise<void>} A promise that resolves when the file is sent as a response.
+   */
+  static async getFile(req, res) {
+    const { id } = req.params;
+
+    try {
+      const file = await dbClient.db.collection('files').findOne({ _id: id });
+      if (!file) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      const token = req.header('X-Token');
+      if (!file.isPublic && (!token || file.userId !== req.userId)) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      if (file.type === 'folder') {
+        return res.status(400).json({ error: 'A folder doesn\'t have content' });
+      }
+
+      // Check if the file exists locally
+      if (!fs.existsSync(file.localPath)) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      const mimeType = mime.lookup(file.name) || 'application/octet-stream';
+
+      const fileStream = fs.createReadStream(file.localPath);
+      res.setHeader('Content-Type', mimeType);
+      fileStream.pipe(res);
+
+      return res.status(500).json({ error: 'Unexpected Error' });
+    } catch (error) {
+      console.error('Error while retrieving file:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
 }
 
 export default FilesController;
